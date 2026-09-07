@@ -112,14 +112,9 @@ export function buildOpenSessionLinkUri(backendSession: URI | string, chatId?: s
  * Shape: `<product-protocol>://agents/agent-host-session/<provider>/<rawSessionId>`.
  */
 export function buildExternalOpenSessionLinkUri(productUrlProtocol: string, backendSession: URI | string, chatId?: string, turnId?: string): string {
-	const sessionLink = URI.parse(buildOpenSessionLinkUri(backendSession, chatId, turnId));
-	return URI.from({
-		scheme: productUrlProtocol,
-		authority: AGENTS_AUTHORITY,
-		path: `${AGENT_HOST_SESSION_LINK_PATH_PREFIX}${sessionLink.authority}${sessionLink.path}`,
-		query: sessionLink.query,
-		fragment: sessionLink.fragment,
-	}).toString(true);
+	const sessionLink = buildOpenSessionLinkUri(backendSession, chatId, turnId);
+	const encodedTarget = sessionLink.slice(`${AGENT_HOST_SESSION_LINK_SCHEME}://`.length);
+	return `${productUrlProtocol}://${AGENTS_AUTHORITY}${AGENT_HOST_SESSION_LINK_PATH_PREFIX}${encodedTarget}`;
 }
 
 /**

@@ -1507,14 +1507,16 @@ export class CodeApplication extends Disposable {
 
 		// Then check for windows from protocol links to open
 		if (initialProtocolUrls) {
-			const agentSessionProtocolUrl = initialProtocolUrls.urls.find(protocolUrl =>
+			const agentSessionProtocolUrlIndex = initialProtocolUrls.urls.findIndex(protocolUrl =>
 				parseExternalOpenSessionLinkUri(protocolUrl.uri, this.productService.urlProtocol));
-			if (agentSessionProtocolUrl) {
+			if (agentSessionProtocolUrlIndex >= 0) {
+				const [agentSessionProtocolUrl] = initialProtocolUrls.urls.splice(agentSessionProtocolUrlIndex, 1);
+				const agentSessionLink = parseExternalOpenSessionLinkUri(agentSessionProtocolUrl.uri, this.productService.urlProtocol);
 				return windowsMainService.openAgentsWindow({
 					context: OpenContext.LINK,
 					cli: args,
 					initialStartup: true,
-				}, undefined, undefined, AgentsWindowOpenSource.Link);
+				}, undefined, agentSessionLink, AgentsWindowOpenSource.Link);
 			}
 
 			// Openables can open as windows directly

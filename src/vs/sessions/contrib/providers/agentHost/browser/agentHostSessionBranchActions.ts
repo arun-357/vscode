@@ -28,11 +28,11 @@ function getSession(context: ISession | ISession[] | undefined): ISession | unde
 }
 
 function buildExternalLink(accessor: ServicesAccessor, session: ISession, chatId?: string): string {
-	const resolution = accessor.get(IAgentHostConnectionsService).resolveSessionResource(session.resource);
-	if (!resolution) {
+	const identity = accessor.get(IAgentHostConnectionsService).resolveSessionResourceIdentity(session.resource);
+	if (!identity) {
 		throw new Error(`Cannot resolve Agent Host session resource ${session.resource.toString()}`);
 	}
-	return buildExternalOpenSessionLinkUri(accessor.get(IProductService).urlProtocol, resolution.backendSession, chatId);
+	return buildExternalOpenSessionLinkUri(accessor.get(IProductService).urlProtocol, identity.backendSession, chatId);
 }
 
 registerAction2(class CopyAgentHostSessionLinkAction extends Action2 {

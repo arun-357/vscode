@@ -71,7 +71,7 @@ suite('OpenSessionLinkOpenerContribution', () => {
 		};
 		const connectionsService = new class extends mock<IAgentHostConnectionsService>() {
 			override readonly onDidChangeSessionResolution = Event.None;
-			override resolveSessionResource() {
+			override resolveSessionResourceIdentity() {
 				return undefined;
 			}
 		};
@@ -140,7 +140,7 @@ suite('OpenSessionLinkOpenerContribution', () => {
 		};
 		const connectionsService = new class extends mock<IAgentHostConnectionsService>() {
 			override readonly onDidChangeSessionResolution = Event.None;
-			override resolveSessionResource() {
+			override resolveSessionResourceIdentity() {
 				return undefined;
 			}
 		};
@@ -181,8 +181,8 @@ suite('OpenSessionLinkOpenerContribution', () => {
 			}
 		};
 		const connectionsService = new class extends mock<IAgentHostConnectionsService>() {
-			override resolveSessionResource() {
-				return upcastPartial<NonNullable<ReturnType<IAgentHostConnectionsService['resolveSessionResource']>>>({ backendSession });
+			override resolveSessionResourceIdentity() {
+				return upcastPartial<NonNullable<ReturnType<IAgentHostConnectionsService['resolveSessionResourceIdentity']>>>({ backendSession });
 			}
 		};
 
@@ -227,7 +227,7 @@ suite('OpenSessionLinkOpenerContribution', () => {
 			sessionsManagementService,
 			new class extends mock<ISessionsService>() { },
 			new class extends mock<IAgentHostConnectionsService>() {
-				override resolveSessionResource() { return undefined; }
+				override resolveSessionResourceIdentity() { return undefined; }
 			},
 			linkPresentationService,
 			sessionsProvidersService,
@@ -290,7 +290,7 @@ suite('OpenSessionLinkOpenerContribution', () => {
 			sessionsManagementService,
 			new class extends mock<ISessionsService>() { },
 			new class extends mock<IAgentHostConnectionsService>() {
-				override resolveSessionResource() { return undefined; }
+				override resolveSessionResourceIdentity() { return undefined; }
 			},
 			new class extends mock<ILinkPresentationService>() {
 				override registerLinkPresentationProvider(): IDisposable { return Disposable.None; }

@@ -52,6 +52,20 @@ suite('openSessionLink', () => {
 		});
 	});
 
+	test('preserves percent escapes in opaque session ids', () => {
+		const backend = URI.from({ scheme: 'copilotcli', path: '/abc%2Fdef' });
+		const external = buildExternalOpenSessionLinkUri('vscode-insiders', backend);
+		const internal = parseExternalOpenSessionLinkUri(external, 'vscode-insiders');
+
+		assert.deepStrictEqual({
+			external,
+			backend: internal && parseOpenSessionLinkUri(internal)?.toString(),
+		}, {
+			external: 'vscode-insiders://agents/agent-host-session/copilotcli/abc%252Fdef',
+			backend: 'copilotcli:/abc%252Fdef',
+		});
+	});
+
 	test('rejects invalid external Agents window session links', () => {
 		assert.deepStrictEqual([
 			parseExternalOpenSessionLinkUri('vscode://agents/agent-host-session/copilotcli/abc-123', 'vscode-insiders'),

@@ -29,7 +29,7 @@ import { getSessionSummaryHoverData } from '../../sessions/browser/sessionHoverC
  * session and opening it through {@link ISessionsService}. The link carries the
  * backend session URI; the owning session in the window uses a client scheme
  * (e.g. `agent-host-copilotcli`), so matching goes through
- * {@link IAgentHostConnectionsService.resolveSessionResource}. When the link
+ * {@link IAgentHostConnectionsService.resolveSessionResourceIdentity}. When the link
  * carries a chat id (from `create_chat`), that specific peer chat is opened;
  * otherwise the session's main/default chat is opened, via
  * {@link ISessionsService.openChat} in both cases so the correct chat becomes
@@ -160,9 +160,11 @@ export function findSessionForOpenSessionLink(
 	connectionsService: IAgentHostConnectionsService,
 ): ISession | undefined {
 	return sessionsManagementService.getSessions().find(session => {
-		const resolved = connectionsService.resolveSessionResource(session.resource);
-		return isEqual(session.resource, backendSession)
-			|| !!resolved && isEqual(resolved.backendSession, backendSession);
+		if (isEqual(session.resource, backendSession)) {
+			return true;
+		}
+		const identity = connectionsService.resolveSessionResourceIdentity(session.resource);
+		return !!identity && isEqual(identity.backendSession, backendSession);
 	});
 }
 

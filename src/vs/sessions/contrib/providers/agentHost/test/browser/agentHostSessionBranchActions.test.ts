@@ -8,7 +8,7 @@ import { constObservable } from '../../../../../../base/common/observable.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { mock, upcastPartial } from '../../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { IAgentHostConnectionsService, IAgentHostSessionResolution } from '../../../../../../platform/agentHost/common/agentHostConnectionsService.js';
+import { IAgentHostConnectionsService, IAgentHostSessionIdentity } from '../../../../../../platform/agentHost/common/agentHostConnectionsService.js';
 import { isIMenuItem, MenuRegistry } from '../../../../../../platform/actions/common/actions.js';
 import { IClipboardService } from '../../../../../../platform/clipboard/common/clipboardService.js';
 import { CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
@@ -49,8 +49,8 @@ suite('Agent Host session link actions', () => {
 			}
 		};
 		const connectionsService = new class extends mock<IAgentHostConnectionsService>() {
-			override resolveSessionResource(): IAgentHostSessionResolution {
-				return upcastPartial<IAgentHostSessionResolution>({
+			override resolveSessionResourceIdentity(): IAgentHostSessionIdentity {
+				return upcastPartial<IAgentHostSessionIdentity>({
 					backendSession: URI.parse('copilotcli:/session-1'),
 				});
 			}

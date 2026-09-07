@@ -30,6 +30,7 @@ import { SessionsCopilotConfigSlashSubmitHandlerContribution } from '../browser/
 import { AgentsWindowOpenSource, isAgentsWindowOpenSource } from '../../../../platform/window/common/window.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { isAgentHostProvider } from '../../../common/agentHostSessionsProvider.js';
 import { TOTAL_SESSIONS_KEY } from '../../sessions/browser/sessionsLifecycleTracker.js';
 import { ISessionsWindowOpenViewState, SessionsWindowOpenTelemetry, SessionsWindowSessionStartTelemetry } from '../../sessions/browser/sessionsWindowOpenTelemetry.js';
 import { INewSessionComposerService, NewSessionWorkspacePreselectionSource } from '../browser/newSessionComposerService.js';
@@ -179,6 +180,16 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 			);
 			this.notificationService.error(localize('agentsHandoff.sessionNotFound', "The linked session could not be found: {0}", externalLink));
 			return;
+		}
+
+		const provider = this.sessionsProvidersService.getProvider(session.providerId);
+		if (provider && isAgentHostProvider(provider) && provider.connect && !this.agentHostConnectionsService.resolveSessionResource(session.resource)) {
+			try {
+				await provider.connect();
+			} catch (error) {
+				// Still reveal the seeded session so its connection recovery UI can surface the failure.
+				this.logService.warn('[AgentsHandoff] linked session provider failed to connect on demand', error);
+			}
 		}
 
 		const chatId = parseOpenSessionLinkChatId(sessionLink);
