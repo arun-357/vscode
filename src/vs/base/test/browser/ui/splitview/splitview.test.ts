@@ -494,6 +494,9 @@ suite('Splitview', () => {
 		splitview.addView(editor, 120);
 		splitview.addView(sideBar, 70);
 		splitview.addView(activityBar, 10);
+
+		// `addView` distributes in index order too, so adding the activity bar takes its
+		// size from the side bar. Resize it back to establish a known starting point.
 		splitview.resizeView(1, 70);
 		assert.deepStrictEqual([editor.size, sideBar.size, activityBar.size], [120, 70, 10]);
 
