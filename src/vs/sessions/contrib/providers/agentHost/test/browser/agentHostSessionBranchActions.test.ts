@@ -73,7 +73,7 @@ suite('Agent Host session link actions', () => {
 
 		assert.deepStrictEqual(copied, [
 			'vscode-insiders://agents/agent-host-session/copilotcli/session-1',
-			'vscode-insiders://agents/agent-host-session/copilotcli/session-1?chat=chat-2',
+			'vscode-insiders://agents/agent-host-session/copilotcli/session-1/chat/chat-2',
 		]);
 	});
 });

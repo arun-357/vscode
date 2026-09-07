@@ -47,8 +47,21 @@ suite('openSessionLink', () => {
 			external,
 			internal: parseExternalOpenSessionLinkUri(external, 'vscode-insiders')?.toString(true),
 		}, {
-			external: 'vscode-insiders://agents/agent-host-session/copilotcli/abc-123?chat=chat-9&turn=turn-7',
+			external: 'vscode-insiders://agents/agent-host-session/copilotcli/abc-123/chat/chat-9?turn=turn-7',
 			internal: 'agent-host-session://copilotcli/abc-123?chat=chat-9&turn=turn-7',
+		});
+	});
+
+	test('encodes chat ids as path segments in external links', () => {
+		const external = buildExternalOpenSessionLinkUri('vscode-insiders', 'copilotcli:/abc-123', 'chat/9');
+		const internal = parseExternalOpenSessionLinkUri(external, 'vscode-insiders');
+
+		assert.deepStrictEqual({
+			external,
+			chatId: internal && parseOpenSessionLinkChatId(internal),
+		}, {
+			external: 'vscode-insiders://agents/agent-host-session/copilotcli/abc-123/chat/chat%252F9',
+			chatId: 'chat/9',
 		});
 	});
 
@@ -73,7 +86,8 @@ suite('openSessionLink', () => {
 			parseExternalOpenSessionLinkUri('vscode-insiders://agents/session/copilotcli/abc-123', 'vscode-insiders'),
 			parseExternalOpenSessionLinkUri('vscode-insiders://agents/agent-host-session/copilotcli', 'vscode-insiders'),
 			parseExternalOpenSessionLinkUri('vscode-insiders://agents/agent-host-session//abc-123', 'vscode-insiders'),
-		], [undefined, undefined, undefined, undefined, undefined]);
+			parseExternalOpenSessionLinkUri('vscode-insiders://agents/agent-host-session/copilotcli/abc-123/chat/', 'vscode-insiders'),
+		], [undefined, undefined, undefined, undefined, undefined, undefined]);
 	});
 
 	test('carries an optional chat id', () => {

@@ -27,6 +27,7 @@ export const AGENT_HOST_SESSION_ONLY_LINK_PATTERN = /^(?![^#]*[?&]chat=)agent-ho
 export const AGENT_HOST_CHAT_LINK_PATTERN = /^(?=[^#]*[?&]chat=)agent-host-session:\/\/[^/?#]+\/[^?#]+(?:\?[^#]*)?(?:#.*)?$/i;
 
 const AGENT_HOST_SESSION_LINK_PATH_PREFIX = `/${AGENT_HOST_SESSION_LINK_SCHEME}/`;
+const AGENT_HOST_CHAT_LINK_PATH_SEGMENT = '/chat/';
 
 export type AgentSessionLinkStatus = 'untitled' | 'inProgress' | 'needsInput' | 'completed' | 'error';
 
@@ -109,12 +110,14 @@ export function buildOpenSessionLinkUri(backendSession: URI | string, chatId?: s
 /**
  * Builds a product protocol URL that opens an agent-host session in the Agents window.
  *
- * Shape: `<product-protocol>://agents/agent-host-session/<provider>/<rawSessionId>`.
+ * Shape: `<product-protocol>://agents/agent-host-session/<provider>/<rawSessionId>[/chat/<chatId>]`.
  */
 export function buildExternalOpenSessionLinkUri(productUrlProtocol: string, backendSession: URI | string, chatId?: string, turnId?: string): string {
-	const sessionLink = buildOpenSessionLinkUri(backendSession, chatId, turnId);
+	const sessionLink = buildOpenSessionLinkUri(backendSession);
 	const encodedTarget = sessionLink.slice(`${AGENT_HOST_SESSION_LINK_SCHEME}://`.length);
-	return `${productUrlProtocol}://${AGENTS_AUTHORITY}${AGENT_HOST_SESSION_LINK_PATH_PREFIX}${encodedTarget}`;
+	const chatPath = chatId && chatId !== DEFAULT_CHAT_ID ? `${AGENT_HOST_CHAT_LINK_PATH_SEGMENT}${encodeURIComponent(encodeURIComponent(chatId))}` : '';
+	const query = turnId ? `?turn=${encodeURIComponent(turnId)}` : '';
+	return `${productUrlProtocol}://${AGENTS_AUTHORITY}${AGENT_HOST_SESSION_LINK_PATH_PREFIX}${encodedTarget}${chatPath}${query}`;
 }
 
 /**
@@ -132,11 +135,30 @@ export function parseExternalOpenSessionLinkUri(uri: URI | string, productUrlPro
 		return undefined;
 	}
 
+	const chatSegmentIndex = sessionPath.lastIndexOf(AGENT_HOST_CHAT_LINK_PATH_SEGMENT);
+	const hasChatSegment = chatSegmentIndex > providerEnd;
+	let chatId: string | undefined;
+	if (hasChatSegment) {
+		const encodedChatId = sessionPath.slice(chatSegmentIndex + AGENT_HOST_CHAT_LINK_PATH_SEGMENT.length);
+		if (!encodedChatId) {
+			return undefined;
+		}
+		try {
+			chatId = decodeURIComponent(encodedChatId);
+		} catch {
+			return undefined;
+		}
+	}
+	const sessionTarget = hasChatSegment ? sessionPath.slice(0, chatSegmentIndex) : sessionPath;
+	const query = [
+		chatId ? `chat=${encodeURIComponent(chatId)}` : undefined,
+		parsed.query,
+	].filter(queryPart => !!queryPart).join('&');
 	const sessionLink = URI.from({
 		scheme: AGENT_HOST_SESSION_LINK_SCHEME,
-		authority: sessionPath.slice(0, providerEnd),
-		path: sessionPath.slice(providerEnd),
-		query: parsed.query,
+		authority: sessionTarget.slice(0, providerEnd),
+		path: sessionTarget.slice(providerEnd),
+		query,
 		fragment: parsed.fragment,
 	});
 	return parseOpenSessionLinkUri(sessionLink) ? sessionLink : undefined;
