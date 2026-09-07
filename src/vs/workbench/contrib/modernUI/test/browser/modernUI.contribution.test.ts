@@ -14,7 +14,7 @@ import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Action, Separator } from '../../../../../base/common/actions.js';
 import { Color } from '../../../../../base/common/color.js';
 import { Emitter } from '../../../../../base/common/event.js';
-import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { combinedDisposable, DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { isIMenuItem, isISubmenuItem, MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -1042,34 +1042,36 @@ suite('ModernUIContribution', () => {
 			root.style.setProperty('--vscode-spacing-size60', '6px');
 			root.style.setProperty('--vscode-spacing-size80', '8px');
 			document.body.appendChild(root);
-			store.add(toDisposable(() => root.remove()));
+			const disposables = new DisposableStore();
+			store.add(combinedDisposable(disposables, toDisposable(() => root.remove())));
 
 			const activityBar = appendElement(root, `part activitybar left${name === 'compact activity bar' ? ' compact' : ''}`);
 			const content = appendElement(activityBar, 'content');
 			const menubar = appendElement(content, 'menubar');
-			const rail = store.add(new ActionBar(appendElement(content, 'composite-bar'), { orientation: ActionsOrientation.VERTICAL }));
+			const rail = disposables.add(new ActionBar(appendElement(content, 'composite-bar'), { orientation: ActionsOrientation.VERTICAL }));
 			rail.push([
-				store.add(new Action('explorer', 'Explorer')),
-				store.add(new Action('search', 'Search')),
+				disposables.add(new Action('explorer', 'Explorer')),
+				disposables.add(new Action('search', 'Search')),
 			]);
 			const actions = [
-				store.add(new Action('undo', 'Undo')),
-				store.add(new Action('redo', 'Redo')),
+				disposables.add(new Action('undo', 'Undo')),
+				disposables.add(new Action('redo', 'Redo')),
 				new Separator(),
-				store.add(new Action('cut', 'Cut')),
-				store.add(new Action('copy', 'Copy')),
+				disposables.add(new Action('cut', 'Cut')),
+				disposables.add(new Action('copy', 'Copy')),
 			];
-			const menuBar = store.add(new MenuBar(menubar, {
+			const menuBar = new MenuBar(menubar, {
 				visibility: 'compact',
 				compactMode: { horizontal: HorizontalDirection.Right, vertical: VerticalDirection.Below },
-			}, unthemedMenuStyles));
+			}, unthemedMenuStyles);
+			disposables.add(combinedDisposable(toDisposable(() => menuBar.blur()), menuBar));
 			menuBar.push([
 				{ label: 'Edit', actions },
 				{ label: 'View', actions: [] },
 				{ label: 'Help', actions: [] },
 			]);
 			menuBar.update();
-			await new Promise<void>(resolve => store.add(scheduleAtNextAnimationFrame(getWindow(root), () => resolve())));
+			await new Promise<void>(resolve => disposables.add(scheduleAtNextAnimationFrame(getWindow(root), () => resolve())));
 			menuBar.toggleFocus();
 			menubar.querySelector<HTMLElement>('.menubar-menu-button')!.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, bubbles: true }));
 
@@ -1080,7 +1082,7 @@ suite('ModernUIContribution', () => {
 			assert.ok(submenu);
 
 			const referenceHost = appendElement(root, 'reference-menu');
-			store.add(new Menu(referenceHost, actions, {}, unthemedMenuStyles));
+			disposables.add(new Menu(referenceHost, actions, {}, unthemedMenuStyles));
 			const referenceMenu = referenceHost.querySelector<HTMLElement>('.monaco-menu')!;
 			const menuGeometry = (menu: HTMLElement) => {
 				const items = [...menu.querySelector('.actions-container')!.children];

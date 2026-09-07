@@ -9,6 +9,7 @@ import { HorizontalDirection, VerticalDirection } from '../../../../base/browser
 import { MenuBar } from '../../../../base/browser/ui/menu/menubar.js';
 import { Action, Separator } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { combinedDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { defaultMenuStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { ActivitybarPart } from '../../../browser/parts/activitybar/activitybarPart.js';
@@ -51,7 +52,8 @@ function renderActivityBarMenu({ container, disposableStore }: ComponentFixtureC
 		visibility: 'compact',
 		compactMode: { horizontal: HorizontalDirection.Right, vertical: VerticalDirection.Below },
 	};
-	const menuBar = disposableStore.add(new MenuBar(menubar, { ...menuOptions, visibility: 'hidden' }, defaultMenuStyles));
+	const menuBar = new MenuBar(menubar, { ...menuOptions, visibility: 'hidden' }, defaultMenuStyles);
+	disposableStore.add(combinedDisposable(toDisposable(() => menuBar.blur()), menuBar));
 	menuBar.push([
 		{ label: 'File', actions: [action('new', 'New File'), action('open', 'Open File')] },
 		{
