@@ -138,6 +138,18 @@
 #### chat/chatPetAccessoryRig/chatPetAccessoryRig/LiveEyeLayering/Light
 ![screenshot](https://hediet-screenshots.azurewebsites.net/images/28743055f10abdf3c0a7809b2b3e830b7a04dc65157febf48215eecdf8b03772)
 
+#### chat/chatQuestionCarousel/MarkdownLinks/Dark
+![screenshot](https://hediet-screenshots.azurewebsites.net/images/e3061e1c60eb3462157f40061bbfe1e326560f487924526f1a319a15781c14c5)
+
+#### chat/chatQuestionCarousel/MarkdownLinks/DarkHighContrast
+![screenshot](https://hediet-screenshots.azurewebsites.net/images/21b5b578031626635f59de46977bb89d8b5a52ca67549cbf39276a6c0c2550de)
+
+#### chat/chatQuestionCarousel/MarkdownLinks/Light
+![screenshot](https://hediet-screenshots.azurewebsites.net/images/1e70224f8b2a92241ff8183ec48d7e57b56c40364984fd99a73abefba9a5d4ef)
+
+#### chat/chatQuestionCarousel/MarkdownLinks/LightHighContrast
+![screenshot](https://hediet-screenshots.azurewebsites.net/images/cdd864a3f817d8ae61c744ba12886716491dd00dc5e843a2ce57ffdb7966f7a5)
+
 #### chat/input/chatInput/CompactWithProviderIcon/Dark
 ![screenshot](https://hediet-screenshots.azurewebsites.net/images/d49581cdd64a2c1fb30fd998d04b7a9b6ab72a7126cadb0495acdb2c30212ac2)
 
