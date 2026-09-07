@@ -10,7 +10,7 @@ import { localize } from '../../../../nls.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IAgentHostByokLmHandler } from '../../../../platform/agentHost/common/agentHostByokLm.js';
 import { IAgentHostConnectionsService } from '../../../../platform/agentHost/common/agentHostConnectionsService.js';
-import { parseOpenSessionLinkChatId, parseOpenSessionLinkUri } from '../../../../platform/agentHost/common/openSessionLink.js';
+import { buildExternalOpenSessionLinkUri, parseOpenSessionLinkChatId, parseOpenSessionLinkTurnId, parseOpenSessionLinkUri } from '../../../../platform/agentHost/common/openSessionLink.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { AgentHostByokLmHandler } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostByokLmHandler.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../workbench/common/contributions.js';
@@ -21,6 +21,7 @@ import { IViewsService } from '../../../../workbench/services/views/common/views
 import { ILifecycleService, LifecyclePhase } from '../../../../workbench/services/lifecycle/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { SessionsView, SessionsViewId as SessionsListViewId } from '../../sessions/browser/views/sessionsView.js';
 import { ISessionsSetUpService } from '../../../browser/sessionsSetUpService.js';
 import { ISessionsPartService } from '../../../services/sessions/browser/sessionsPartService.js';
@@ -56,6 +57,7 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IAgentHostConnectionsService private readonly agentHostConnectionsService: IAgentHostConnectionsService,
 		@INotificationService private readonly notificationService: INotificationService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super();
 		const handleSelectAgentsFolder = (_: unknown, ...args: unknown[]) => {
@@ -169,7 +171,13 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		const session = await this.waitForSessionLinkAvailable(backendSession);
 		if (!session) {
 			this.logService.warn('[AgentsHandoff] linked session never appeared in providers; aborting');
-			this.notificationService.error(localize('agentsHandoff.sessionNotFound', "The linked session could not be found."));
+			const externalLink = buildExternalOpenSessionLinkUri(
+				this.productService.urlProtocol,
+				backendSession,
+				parseOpenSessionLinkChatId(sessionLink),
+				parseOpenSessionLinkTurnId(sessionLink),
+			);
+			this.notificationService.error(localize('agentsHandoff.sessionNotFound', "The linked session could not be found: {0}", externalLink));
 			return;
 		}
 
