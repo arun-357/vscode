@@ -8,6 +8,8 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IAgentHostByokLmHandler } from '../../../../platform/agentHost/common/agentHostByokLm.js';
+import { IAgentHostConnectionsService } from '../../../../platform/agentHost/common/agentHostConnectionsService.js';
+import { parseOpenSessionLinkChatId, parseOpenSessionLinkUri } from '../../../../platform/agentHost/common/openSessionLink.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { AgentHostByokLmHandler } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostByokLmHandler.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../workbench/common/contributions.js';
@@ -29,6 +31,7 @@ import { TOTAL_SESSIONS_KEY } from '../../sessions/browser/sessionsLifecycleTrac
 import { ISessionsWindowOpenViewState, SessionsWindowOpenTelemetry, SessionsWindowSessionStartTelemetry } from '../../sessions/browser/sessionsWindowOpenTelemetry.js';
 import { INewSessionComposerService, NewSessionWorkspacePreselectionSource } from '../browser/newSessionComposerService.js';
 import { resolveAgentsWindowFolderIntent } from '../browser/agentsWindowOpenIntent.js';
+import { findSessionForOpenSessionLink } from '../browser/openSessionLinkOpener.contribution.js';
 
 class SelectAgentsFolderContribution extends Disposable implements IWorkbenchContribution {
 
@@ -49,6 +52,7 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@INewSessionComposerService private readonly newSessionComposerService: INewSessionComposerService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IAgentHostConnectionsService private readonly agentHostConnectionsService: IAgentHostConnectionsService,
 	) {
 		super();
 		const handleSelectAgentsFolder = (_: unknown, ...args: unknown[]) => {
@@ -139,6 +143,12 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		await this.lifecycleService.when(LifecyclePhase.Eventually);
 		this.logService.info('[AgentsHandoff] reached LifecyclePhase.Eventually');
 
+		const backendSession = parseOpenSessionLinkUri(sessionResource);
+		if (backendSession) {
+			await this.sessionsPartService.getProgressIndicator().showWhile(this.resolveAndOpenSessionLink(sessionResource, backendSession));
+			return;
+		}
+
 		// Fast path — already on the target session.
 		const current = this.sessionsService.activeSession.get();
 		if (current && current.resource.toString() === sessionResource.toString()) {
@@ -150,6 +160,46 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		// appear in the providers and open it, so the window doesn't just sit on
 		// its restored state until the target session pops in.
 		await this.sessionsPartService.getProgressIndicator().showWhile(this.resolveAndOpenSession(sessionResource));
+	}
+
+	private async resolveAndOpenSessionLink(sessionLink: URI, backendSession: URI): Promise<void> {
+		const session = await this.waitForSessionLinkAvailable(backendSession);
+		if (!session) {
+			this.logService.warn('[AgentsHandoff] linked session never appeared in providers; aborting');
+			return;
+		}
+
+		const chatId = parseOpenSessionLinkChatId(sessionLink);
+		const chatResource = chatId ? session.resource.with({ fragment: chatId }) : session.mainChat.get().resource;
+		this.logService.info(`[AgentsHandoff] linked session available; opening ${chatResource.toString()}`);
+		await this.sessionsService.openChat(session, chatResource, { source: 'link' });
+	}
+
+	private waitForSessionLinkAvailable(backendSession: URI, timeoutMs = 15_000): Promise<ReturnType<typeof findSessionForOpenSessionLink>> {
+		const findSession = () => findSessionForOpenSessionLink(backendSession, this.sessionsManagementService, this.agentHostConnectionsService);
+		const existing = findSession();
+		if (existing) {
+			return Promise.resolve(existing);
+		}
+
+		return new Promise(resolve => {
+			const store = new DisposableStore();
+			const done = (session: ReturnType<typeof findSession>) => {
+				store.dispose();
+				resolve(session);
+			};
+			const tryFind = () => {
+				const session = findSession();
+				if (session) {
+					done(session);
+				}
+			};
+			const timer = setTimeout(() => done(findSession()), timeoutMs);
+			store.add({ dispose: () => clearTimeout(timer) });
+			store.add(this.sessionsManagementService.onDidChangeSessions(tryFind));
+			store.add(this.agentHostConnectionsService.onDidChangeSessionResolution(tryFind));
+			tryFind();
+		});
 	}
 
 	private async resolveAndOpenSession(sessionResource: URI): Promise<void> {

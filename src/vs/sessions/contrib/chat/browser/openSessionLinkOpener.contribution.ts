@@ -81,7 +81,7 @@ export class OpenSessionLinkOpenerContribution extends Disposable implements IWo
 	private _findSessionForLink(resource: URI | string): ISession | undefined {
 		const backendSession = parseOpenSessionLinkUri(resource);
 		return backendSession
-			? findSession(backendSession, this._sessionsManagementService, this._connectionsService)
+			? findSessionForOpenSessionLink(backendSession, this._sessionsManagementService, this._connectionsService)
 			: undefined;
 	}
 
@@ -116,7 +116,7 @@ class AgentSessionLinkPresentationWatcher extends Disposable implements ILinkPre
 			reader => {
 				sessionsChanged.read(reader);
 				const session = backendSession
-					? findSession(backendSession, sessionsManagementService, connectionsService)
+					? findSessionForOpenSessionLink(backendSession, sessionsManagementService, connectionsService)
 					: undefined;
 				return session ? readSessionState(session, chatId, reader, kind) : undefined;
 			},
@@ -154,7 +154,7 @@ export interface ISessionLinkState {
 	readonly chats: IObservable<readonly ISessionLinkChatState[]>;
 }
 
-function findSession(
+export function findSessionForOpenSessionLink(
 	backendSession: URI,
 	sessionsManagementService: ISessionsManagementService,
 	connectionsService: IAgentHostConnectionsService,
