@@ -1125,15 +1125,15 @@ export class SessionsService extends Disposable implements ISessionsService {
 		return { session: targetSession, trustDeclined: false };
 	}
 
-	/** Open beside the active session when requested, reusing an existing empty slot in place. */
+	/** Open or move beside the active session when requested, keeping a single empty slot. */
 	private _activateOrInsert(session: ISession | undefined, toSide: boolean | undefined): void {
-		if (toSide) {
+		const activeSessionId = this._visibility.activeSession.get()?.sessionId;
+		const sessionId = session?.sessionId;
+		if (toSide && activeSessionId !== sessionId) {
 			const visible = this.visibleSessions.get();
 			// An empty active slot has no id; fall back to the rightmost session.
-			const anchorId = this._visibility.activeSession.get()?.sessionId ?? visible[visible.length - 1]?.sessionId;
-			const sessionId = session?.sessionId;
-			const canInsertEmptySlot = sessionId !== undefined || !visible.includes(undefined);
-			if (anchorId && canInsertEmptySlot && anchorId !== sessionId) {
+			const anchorId = activeSessionId ?? visible[visible.length - 1]?.sessionId;
+			if (anchorId && anchorId !== sessionId) {
 				this.insertAt(session, anchorId, 'right', true);
 				return;
 			}

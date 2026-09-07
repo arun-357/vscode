@@ -535,7 +535,45 @@ suite('SessionsManagementService', () => {
 		}, { visible: [null], active: undefined });
 	});
 
-	test('openNewSession with toSide inserts beside the active session and reuses a composer elsewhere', async () => {
+	test('openNewSession with toSide moves the existing composer beside the active session', async () => {
+		const first = stubSession({ sessionId: 'first', providerId: 'test' });
+		const middle = stubSession({ sessionId: 'middle', providerId: 'test' });
+		const last = stubSession({ sessionId: 'last', providerId: 'test' });
+		const provider = new class extends TestSessionsProvider {
+			constructor() { super(first); }
+			override getSessions(): ISession[] { return [first, middle, last]; }
+		};
+		const { view } = createSessionsManagementService(first, disposables, provider);
+
+		await view.openSession(first.resource);
+		view.insertAt(middle, first.sessionId, 'right', false);
+		view.insertAt(last, middle.sessionId, 'right', false);
+		await view.openNewSession({ toSide: true });
+		const inserted = view.visibleSessions.get().map(s => s?.sessionId ?? null);
+		await view.openNewSession({ toSide: true });
+		const repeated = view.visibleSessions.get().map(s => s?.sessionId ?? null);
+		await view.openSession(last.resource);
+		await view.openNewSession({ toSide: true });
+		const movedRight = view.visibleSessions.get().map(s => s?.sessionId ?? null);
+		await view.openSession(first.resource);
+		await view.openNewSession({ toSide: true });
+
+		assert.deepStrictEqual({
+			inserted,
+			repeated,
+			movedRight,
+			movedLeft: view.visibleSessions.get().map(s => s?.sessionId ?? null),
+			active: view.activeSession.get(),
+		}, {
+			inserted: ['first', null, 'middle', 'last'],
+			repeated: ['first', null, 'middle', 'last'],
+			movedRight: ['first', 'middle', 'last', null],
+			movedLeft: ['first', null, 'middle', 'last'],
+			active: undefined,
+		});
+	});
+
+	test('openNewSession without toSide leaves an existing composer in place', async () => {
 		const first = stubSession({ sessionId: 'first', providerId: 'test' });
 		const last = stubSession({ sessionId: 'last', providerId: 'test' });
 		const provider = new class extends TestSessionsProvider {
@@ -547,17 +585,14 @@ suite('SessionsManagementService', () => {
 		await view.openSession(first.resource);
 		view.insertAt(last, first.sessionId, 'right', false);
 		await view.openNewSession({ toSide: true });
-		const inserted = view.visibleSessions.get().map(s => s?.sessionId ?? null);
 		await view.openSession(last.resource);
-		await view.openNewSession({ toSide: true });
+		await view.openNewSession();
 
 		assert.deepStrictEqual({
-			inserted,
-			reused: view.visibleSessions.get().map(s => s?.sessionId ?? null),
+			visible: view.visibleSessions.get().map(s => s?.sessionId ?? null),
 			active: view.activeSession.get(),
 		}, {
-			inserted: ['first', null, 'last'],
-			reused: ['first', null, 'last'],
+			visible: ['first', null, 'last'],
 			active: undefined,
 		});
 	});
