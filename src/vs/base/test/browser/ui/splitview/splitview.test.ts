@@ -47,10 +47,7 @@ class TestView implements IView<number> {
 		assert(_minimumSize <= _maximumSize, 'splitview view minimum size must be <= maximum size');
 	}
 
-	/**
-	 * Change both size constraints at once, as a view with a fixed width does when
-	 * that width changes.
-	 */
+	/** Change both size constraints at once, as a view with a fixed width does when that width changes. */
 	setSizeConstraints(minimumSize: number, maximumSize: number): void {
 		this._minimumSize = minimumSize;
 		this._maximumSize = maximumSize;
@@ -479,12 +476,7 @@ suite('Splitview', () => {
 
 	test('view changing its size constraints while a sibling is toggled does not squeeze that sibling (#334167)', () => {
 
-		// Mirrors the workbench layout with the primary side bar on the right:
-		// [editor, side bar, activity bar]. The activity bar has a fixed width that
-		// grows when the side bar hides, and it reports that change from within the
-		// visibility change of the side bar, i.e. while the split view is still
-		// restoring the side bar to its cached size.
-
+		// Mirrors the workbench with the side bar on the right: the activity bar reports its new fixed width from within the visibility change of the side bar
 		const editor = store.add(new TestView(20, Number.POSITIVE_INFINITY, LayoutPriority.High));
 		const sideBar = store.add(new TestView(20, Number.POSITIVE_INFINITY, LayoutPriority.Low));
 		const activityBar = store.add(new TestView(10, 10));
@@ -495,8 +487,7 @@ suite('Splitview', () => {
 		splitview.addView(sideBar, 70);
 		splitview.addView(activityBar, 10);
 
-		// `addView` distributes in index order too, so adding the activity bar takes its
-		// size from the side bar. Resize it back to establish a known starting point.
+		// `addView` distributes in index order too, so restore the side bar to a known starting point
 		splitview.resizeView(1, 70);
 		assert.deepStrictEqual([editor.size, sideBar.size, activityBar.size], [120, 70, 10]);
 
