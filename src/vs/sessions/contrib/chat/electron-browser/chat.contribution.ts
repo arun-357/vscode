@@ -6,6 +6,7 @@
 import { ipcRenderer } from '../../../../base/parts/sandbox/electron-browser/globals.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { localize } from '../../../../nls.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IAgentHostByokLmHandler } from '../../../../platform/agentHost/common/agentHostByokLm.js';
 import { IAgentHostConnectionsService } from '../../../../platform/agentHost/common/agentHostConnectionsService.js';
@@ -19,6 +20,7 @@ import { ISessionsProvidersService } from '../../../services/sessions/browser/se
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../../workbench/services/lifecycle/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { SessionsView, SessionsViewId as SessionsListViewId } from '../../sessions/browser/views/sessionsView.js';
 import { ISessionsSetUpService } from '../../../browser/sessionsSetUpService.js';
 import { ISessionsPartService } from '../../../services/sessions/browser/sessionsPartService.js';
@@ -53,6 +55,7 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		@INewSessionComposerService private readonly newSessionComposerService: INewSessionComposerService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IAgentHostConnectionsService private readonly agentHostConnectionsService: IAgentHostConnectionsService,
+		@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super();
 		const handleSelectAgentsFolder = (_: unknown, ...args: unknown[]) => {
@@ -166,6 +169,7 @@ class SelectAgentsFolderContribution extends Disposable implements IWorkbenchCon
 		const session = await this.waitForSessionLinkAvailable(backendSession);
 		if (!session) {
 			this.logService.warn('[AgentsHandoff] linked session never appeared in providers; aborting');
+			this.notificationService.error(localize('agentsHandoff.sessionNotFound', "The linked session could not be found."));
 			return;
 		}
 
