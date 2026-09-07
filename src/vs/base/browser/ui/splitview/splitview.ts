@@ -1017,7 +1017,17 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo
 			this.layoutViews();
 		} else {
 			item.size = size;
-			this.relayout([index], undefined);
+
+			// Give the space this view gained or gave up to the views that are meant to
+			// take it: high priority views absorb it first and low priority ones last,
+			// just like an explicit `resizeView` does. Falling back to plain index order
+			// lets a neighbour with a size of its own (such as the primary side bar) get
+			// squeezed instead of the flexible views (see #334167).
+			const indexes = range(this.viewItems.length).filter(i => i !== index);
+			const lowPriorityIndexes = [...indexes.filter(i => this.viewItems[i].priority === LayoutPriority.Low), index];
+			const highPriorityIndexes = indexes.filter(i => this.viewItems[i].priority === LayoutPriority.High);
+
+			this.relayout(lowPriorityIndexes, highPriorityIndexes);
 		}
 	}
 

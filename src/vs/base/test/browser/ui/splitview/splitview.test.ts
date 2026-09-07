@@ -36,12 +36,29 @@ class TestView implements IView<number> {
 	private readonly _onDidFocus = new Emitter<void>();
 	readonly onDidFocus = this._onDidFocus.event;
 
+	private readonly _onDidSetVisible = new Emitter<boolean>();
+	readonly onDidSetVisible = this._onDidSetVisible.event;
+
 	constructor(
 		private _minimumSize: number,
 		private _maximumSize: number,
 		readonly priority: LayoutPriority = LayoutPriority.Normal
 	) {
 		assert(_minimumSize <= _maximumSize, 'splitview view minimum size must be <= maximum size');
+	}
+
+	/**
+	 * Change both size constraints at once, as a view with a fixed width does when
+	 * that width changes.
+	 */
+	setSizeConstraints(minimumSize: number, maximumSize: number): void {
+		this._minimumSize = minimumSize;
+		this._maximumSize = maximumSize;
+		this._onDidChange.fire(undefined);
+	}
+
+	setVisible(visible: boolean): void {
+		this._onDidSetVisible.fire(visible);
 	}
 
 	layout(size: number, _offset: number, orthogonalSize: number | undefined): void {
@@ -59,6 +76,7 @@ class TestView implements IView<number> {
 		this._onDidGetElement.dispose();
 		this._onDidLayout.dispose();
 		this._onDidFocus.dispose();
+		this._onDidSetVisible.dispose();
 	}
 }
 
@@ -457,6 +475,35 @@ suite('Splitview', () => {
 
 		splitview.layout(200);
 		assert.deepStrictEqual([view1.size, view2.size, view3.size], [20, 160, 20]);
+	});
+
+	test('view changing its size constraints while a sibling is toggled does not squeeze that sibling (#334167)', () => {
+
+		// Mirrors the workbench layout with the primary side bar on the right:
+		// [editor, side bar, activity bar]. The activity bar has a fixed width that
+		// grows when the side bar hides, and it reports that change from within the
+		// visibility change of the side bar, i.e. while the split view is still
+		// restoring the side bar to its cached size.
+
+		const editor = store.add(new TestView(20, Number.POSITIVE_INFINITY, LayoutPriority.High));
+		const sideBar = store.add(new TestView(20, Number.POSITIVE_INFINITY, LayoutPriority.Low));
+		const activityBar = store.add(new TestView(10, 10));
+		const splitview = store.add(new SplitView(container, { proportionalLayout: false }));
+		splitview.layout(200);
+
+		splitview.addView(editor, 120);
+		splitview.addView(sideBar, 70);
+		splitview.addView(activityBar, 10);
+		splitview.resizeView(1, 70);
+		assert.deepStrictEqual([editor.size, sideBar.size, activityBar.size], [120, 70, 10]);
+
+		store.add(sideBar.onDidSetVisible(visible => activityBar.setSizeConstraints(visible ? 10 : 12, visible ? 10 : 12)));
+
+		splitview.setViewVisible(1, false);
+		assert.deepStrictEqual([editor.size, sideBar.size, activityBar.size], [188, 0, 12]);
+
+		splitview.setViewVisible(1, true);
+		assert.deepStrictEqual([editor.size, sideBar.size, activityBar.size], [120, 70, 10]);
 	});
 
 	test('context propagates to views', () => {
