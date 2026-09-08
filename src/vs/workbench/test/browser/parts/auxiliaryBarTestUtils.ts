@@ -7,6 +7,7 @@ import { Action, IAction } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Event } from '../../../../base/common/event.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IToolBarResponsiveBehaviorOptions } from '../../../../base/browser/ui/toolbar/toolbar.js';
 import { IMenuCreateOptions, IMenuService, MenuId, MenuItemAction, MenuRegistry, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { MenuService } from '../../../../platform/actions/common/menuService.js';
 import { ContextKeyService } from '../../../../platform/contextkey/browser/contextKeyService.js';
@@ -50,6 +51,8 @@ export function createTestAuxiliaryBarPart(container: HTMLElement, store: Pick<D
 
 export class TestAuxiliaryBarPart extends AuxiliaryBarPart {
 
+	private toolbarAvailableWidth: number | undefined;
+
 	protected override getActiveComposite(): IComposite {
 		return {
 			onDidFocus: Event.None,
@@ -62,8 +65,19 @@ export class TestAuxiliaryBarPart extends AuxiliaryBarPart {
 		};
 	}
 
+	protected override getToolbarResponsiveBehavior(): IToolBarResponsiveBehaviorOptions {
+		return {
+			...super.getToolbarResponsiveBehavior(),
+			getAvailableWidth: () => this.toolbarAvailableWidth ?? this.toolBar?.getElement().getBoundingClientRect().width ?? 0,
+		};
+	}
+
 	protected override shouldShowCompositeBar(): boolean {
 		return false;
+	}
+
+	setToolbarAvailableWidth(width: number): void {
+		this.toolbarAvailableWidth = width;
 	}
 
 	setTitleActions(title: string, primary: IAction[], secondary: IAction[]): void {

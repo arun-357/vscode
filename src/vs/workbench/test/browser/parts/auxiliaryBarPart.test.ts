@@ -34,9 +34,10 @@ suite('Auxiliary Bar - Responsive title actions', () => {
 			const part = createTestAuxiliaryBarPart(container, store);
 
 			const states = [];
-			for (const width of [300, 175, 140, 175, 300]) {
-				container.style.width = `${width}px`;
-				part.layout(width, 200, 0, 0);
+			for (const [containerWidth, toolbarWidth] of [[300, 120], [185, 80], [140, 50], [185, 80], [300, 120]]) {
+				container.style.width = `${containerWidth}px`;
+				part.setToolbarAvailableWidth(toolbarWidth);
+				part.layout(containerWidth, 200, 0, 0);
 				part.toolbar.relayout();
 				const title = container.querySelector('h2')!;
 				const firstAction = part.toolbar.getItemElement(0)!;
