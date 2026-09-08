@@ -21,6 +21,8 @@ suite('Auxiliary Bar - Responsive title actions', () => {
 
 	setup(() => {
 		root = append(document.body, $('.monaco-workbench'));
+		root.style.setProperty('--vscode-spacing-size40', '4px');
+		root.style.setProperty('--vscode-spacing-size80', '8px');
 	});
 
 	teardown(() => root.remove());
@@ -32,7 +34,7 @@ suite('Auxiliary Bar - Responsive title actions', () => {
 			const part = createTestAuxiliaryBarPart(container, store);
 
 			const states = [];
-			for (const width of [300, 185, 140, 185, 300]) {
+			for (const width of [300, 175, 140, 175, 300]) {
 				container.style.width = `${width}px`;
 				part.layout(width, 200, 0, 0);
 				part.toolbar.relayout();
