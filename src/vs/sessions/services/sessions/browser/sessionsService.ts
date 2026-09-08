@@ -887,6 +887,10 @@ export class SessionsService extends Disposable implements ISessionsService {
 				return;
 			}
 			const sessionData = this._getSession(resolved);
+			await this.sessionsProvidersService.getProvider(sessionData.providerId)?.prepareSessionForOpen?.(sessionData, 'open');
+			if (token.isCancellationRequested) {
+				return;
+			}
 			this.sessionOpenTelemetryService.sessionResolved(
 				telemetryAttempt,
 				sessionData.resource,
@@ -1581,6 +1585,10 @@ export class SessionsService extends Disposable implements ISessionsService {
 
 		if (token.isCancellationRequested) {
 			return;
+		}
+		if (activeSession) {
+			const provider = this.sessionsProvidersService.getProvider(activeSession.providerId);
+			void provider?.prepareSessionForOpen?.(activeSession, 'restore').catch(error => this.logService.warn(`[SessionsView] Failed to prepare restored session for provider '${provider.id}'`, error));
 		}
 
 		// Lay out all currently-available sessions atomically in the persisted
