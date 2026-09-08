@@ -64,6 +64,12 @@ export interface IOpenNewSessionOptions extends ICreateNewSessionOptions {
 	readonly folderUri?: URI;
 	/** Cancel startup session restoration so this new-session navigation wins. */
 	readonly cancelRestore?: boolean;
+
+	/**
+	 * When `true`, opens the new session (or empty composer slot) to the side
+	 * of the active session in the grid instead of replacing it in place.
+	 */
+	readonly toSide?: boolean;
 }
 
 /**
@@ -270,9 +276,10 @@ export interface ISessionsService {
 
 	/**
 	 * Insert (or move) a session into the grid positioned next to a target
-	 * session that is already visible.
+	 * session that is already visible. Passing `undefined` operates on the
+	 * empty (new-session) slot.
 	 */
-	insertAt(session: ISession, targetSessionId: string, side: 'left' | 'right', activate?: boolean): void;
+	insertAt(session: ISession | undefined, targetSessionId: string, side: 'left' | 'right', activate?: boolean): void;
 
 	/**
 	 * Toggle a session's stickiness in the grid. The session keeps its grid
@@ -1085,7 +1092,7 @@ export class SessionsService extends Disposable implements ISessionsService {
 			this._startOpenSession();
 			try {
 				const session = this.sessionsManagementService.createNewSession(folderUri, options);
-				this._activate(session);
+				this._activateOrInsert(session, options?.toSide);
 				return { session, trustDeclined: false };
 			} catch (e) {
 				// When the folder cannot be resolved (e.g. the active session's
@@ -1097,11 +1104,11 @@ export class SessionsService extends Disposable implements ISessionsService {
 
 		// Without a folder (or when folder resolution failed above): switch to
 		// the new-session composer view.
-		// No-op when no session is active (empty new-session placeholder showing).
+		// No-op when the empty new-session placeholder is active, unless opening to the side.
 		if (!folderUri) {
 			this._dismissCustomViewForNavigation(intent);
 		}
-		if (this._visibility.activeSession.get() === undefined) {
+		if (this._visibility.activeSession.get() === undefined && !options?.toSide) {
 			return { session: undefined, trustDeclined: false };
 		}
 		if (!folderUri) {
@@ -1113,8 +1120,25 @@ export class SessionsService extends Disposable implements ISessionsService {
 		// active session (first time / after send).
 		const newSession = this.sessionsManagementService.newSession.get();
 
-		this._activate(newSession ?? undefined);
-		return { session: newSession ?? undefined, trustDeclined: false };
+		const targetSession = newSession ?? undefined;
+		this._activateOrInsert(targetSession, options?.toSide);
+		return { session: targetSession, trustDeclined: false };
+	}
+
+	/** Open or move beside the active session when requested, keeping a single empty slot. */
+	private _activateOrInsert(session: ISession | undefined, toSide: boolean | undefined): void {
+		const activeSessionId = this._visibility.activeSession.get()?.sessionId;
+		const sessionId = session?.sessionId;
+		if (toSide && activeSessionId !== sessionId) {
+			const visible = this.visibleSessions.get();
+			// An empty active slot has no id; fall back to the rightmost session.
+			const anchorId = activeSessionId ?? visible[visible.length - 1]?.sessionId;
+			if (anchorId && anchorId !== sessionId) {
+				this.insertAt(session, anchorId, 'right', true);
+				return;
+			}
+		}
+		this._activate(session);
 	}
 
 	openQuickChat(options?: ICreateNewSessionOptions): IActiveSession | undefined {
@@ -1178,7 +1202,7 @@ export class SessionsService extends Disposable implements ISessionsService {
 		this._onDidToggleSessionStickiness.fire({ session, sticky });
 	}
 
-	insertAt(session: ISession, targetSessionId: string, side: 'left' | 'right', activate: boolean = true): void {
+	insertAt(session: ISession | undefined, targetSessionId: string, side: 'left' | 'right', activate: boolean = true): void {
 		this._visibility.insertAt(session, targetSessionId, side, activate);
 	}
 
