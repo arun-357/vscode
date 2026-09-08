@@ -5,8 +5,10 @@
 
 import assert from 'assert';
 import { IContextMenuProvider } from '../../../../browser/contextmenu.js';
+import { addDisposableListener } from '../../../../browser/dom.js';
 import { ActionBar } from '../../../../browser/ui/actionbar/actionbar.js';
 import { BaseActionViewItem } from '../../../../browser/ui/actionbar/actionViewItems.js';
+import { ActionWithDropdownActionViewItem } from '../../../../browser/ui/dropdown/dropdownActionViewItem.js';
 import { ToggleMenuAction, ToolBar } from '../../../../browser/ui/toolbar/toolbar.js';
 import { Action, IAction, Separator } from '../../../../common/actions.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../common/utils.js';
@@ -693,6 +695,98 @@ suite('ToolBar', () => {
 			minWidth: '38px',
 		});
 	});
+
+	for (const overflowFrom of ['start', 'end'] as const) {
+		for (const secondary of [false, true]) {
+			test(`restores grouped actions without confusing the trailing separator (overflowFrom: ${overflowFrom}, secondary: ${secondary})`, () => {
+				let availableWidth = 300;
+				const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+					trailingSeparator: true,
+					responsiveBehavior: {
+						enabled: true,
+						kind: 'all',
+						minItems: 0,
+						overflowFrom,
+						getAvailableWidth: () => availableWidth,
+					},
+				}));
+				const separator = new Separator();
+				toolbar.setActions([
+					store.add(new Action('a', 'A')),
+					separator,
+					store.add(new Action('b', 'B')),
+				], secondary ? [store.add(new Action('history', 'History'))] : []);
+
+				const states = [];
+				for (const width of [300, 48, 61, 72, 300, 48, 300]) {
+					availableWidth = width;
+					toolbar.relayout();
+					const items = Array.from({ length: toolbar.getItemsLength() }, (_, index) => toolbar.getItemAction(index)!);
+					const overflow = items.find(action => action instanceof ToggleMenuAction);
+					states.push({
+						commands: [...items, ...overflow?.menuActions ?? []]
+							.filter(action => action.id === 'a' || action.id === 'b').map(action => action.id).sort(),
+						expandedItems: width === 300 ? items.map(action => action === separator ? 'group separator' : action.id) : undefined,
+					});
+				}
+				const expanded = { commands: ['a', 'b'], expandedItems: ['a', 'group separator', 'b', ...(secondary ? [ToggleMenuAction.ID] : []), Separator.ID] };
+				const collapsed = { commands: ['a', 'b'], expandedItems: undefined };
+				assert.deepStrictEqual(states, [expanded, collapsed, collapsed, collapsed, expanded, collapsed, expanded]);
+			});
+		}
+	}
+
+	for (const responsive of [
+		{ kind: 'all', overflowFrom: 'start' },
+		{ kind: 'all', overflowFrom: 'end' },
+		{ kind: 'last', overflowFrom: 'end' },
+	] as const) {
+		test(`preserves split-button dropdown focus across responsive relayouts (${responsive.kind}, ${responsive.overflowFrom})`, () => {
+			let availableWidth = 300;
+			const splitAction = store.add(new Action('split', 'Split Button'));
+			const dropdownAction = store.add(new Action('dropdown', 'Dropdown Action'));
+			const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+				responsiveBehavior: {
+					enabled: true,
+					...responsive,
+					minItems: 2,
+					getActionMinWidth: action => action === splitAction ? 36 : 22,
+					getAvailableWidth: () => availableWidth,
+				},
+				actionViewItemProvider: action => action === splitAction
+					? new ActionWithDropdownActionViewItem(undefined, action, { icon: true, label: false, menuActionsOrProvider: [dropdownAction] }, contextMenuProvider)
+					: new FixedWidthActionViewItem(action, 22),
+			}));
+			const actions = ['a', 'b', 'c'].map(id => store.add(new Action(id, id)));
+			actions.splice(responsive.overflowFrom === 'start' ? 2 : 1, 0, splitAction);
+			toolbar.setActions(actions);
+			toolbar.focus(0);
+			toolbar.focus(actions.indexOf(splitAction));
+			document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', keyCode: 39, bubbles: true }));
+			const dropdown = toolbar.getItemElement(actions.indexOf(splitAction))!.querySelector<HTMLElement>('[aria-haspopup="true"]')!;
+			assert.strictEqual(document.activeElement, dropdown);
+
+			let focusEvents = 0;
+			store.add(addDisposableListener(toolbar.getElement(), 'focusin', () => focusEvents++));
+			const states = [];
+			for (const width of [1, 1, 300, 1, 1, 300]) {
+				const unchangedWidth = availableWidth === width;
+				const previousFocusEvents = focusEvents;
+				availableWidth = width;
+				toolbar.relayout();
+				states.push({
+					dropdownConnected: dropdown.isConnected,
+					dropdownFocused: document.activeElement === dropdown,
+					tabStops: toolbar.getElement().querySelectorAll('[tabindex="0"]').length,
+					items: toolbar.getItemsLength(),
+					noOpFocusEvents: unchangedWidth ? focusEvents - previousFocusEvents : 0,
+				});
+			}
+			const collapsed = { dropdownConnected: true, dropdownFocused: true, tabStops: 1, items: 3, noOpFocusEvents: 0 };
+			const expanded = { ...collapsed, items: 4 };
+			assert.deepStrictEqual(states, [collapsed, collapsed, expanded, collapsed, collapsed, expanded]);
+		});
+	}
 
 	for (const secondary of [false, true]) {
 		for (const trailingSeparator of [false, true]) {

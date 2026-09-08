@@ -520,9 +520,9 @@ export class ToolBar extends Disposable {
 			return;
 		}
 
-		const focusedAction = Array.from({ length: this.actionBar.length() }, (_, index) => index)
-			.find(index => this.actionBar.isFocused(index));
-		const focusedActionId = focusedAction !== undefined ? this.actionBar.getAction(focusedAction)?.id : undefined;
+		const focusedElement = DOM.getActiveElement();
+		const focusedAction = DOM.isHTMLElement(focusedElement) ? this.actionBar.getAction(focusedElement) : undefined;
+		const previousHiddenActionsCount = this.hiddenActions.length;
 
 		if (minimumWidth > containerWidth) {
 			const allowOverflow = this.options.responsiveBehavior?.allowOverflow;
@@ -592,20 +592,21 @@ export class ToolBar extends Disposable {
 				this.hiddenActions.splice(hiddenIndex, 1);
 
 				// Add the action
+				const visibleActions = new Set(this.actionBar.viewItems.map(item => item.action));
 				this.actionBar.push(action, {
 					icon: this.options.icon ?? true,
 					label: this.options.label ?? false,
 					keybinding: this.getKeybindingLabel(action),
 					index: this.originalPrimaryActions
 						.slice(0, this.originalPrimaryActions.indexOf(action))
-						.reduce((index, precedingAction) => index + (this.actionBar.hasAction(precedingAction) ? 1 : 0), 0)
+						.reduce((index, precedingAction) => index + (visibleActions.has(precedingAction) ? 1 : 0), 0)
 				});
 
 				// There are no secondary actions, and there is only one hidden item left so we
 				// remove the overflow menu making space for the last hidden action to be shown.
 				if (this.originalSecondaryActions.length === 0 && this.hiddenActions.length === 0) {
 					this.toggleMenuAction.menuActions = [];
-					this.actionBar.pull(this.actionBar.length() - (this.options.trailingSeparator ? 2 : 1));
+					this.actionBar.pull(this.actionBar.viewItems.findIndex(item => item.action === this.toggleMenuAction));
 					this.updateOverflowClassName();
 				}
 
@@ -625,6 +626,10 @@ export class ToolBar extends Disposable {
 
 		this.updateOverflowClassName();
 		this.applyResponsiveActionMinWidths();
+		if (this.hiddenActions.length === previousHiddenActionsCount) {
+			return;
+		}
+
 		// Rebuild the roving tab stop after items have been removed or inserted.
 		for (let i = 0; i < this.actionBar.length(); i++) {
 			const viewItem = this.getItemViewItem(i);
@@ -632,12 +637,21 @@ export class ToolBar extends Disposable {
 				viewItem.setFocusable(false);
 			}
 		}
-		if (focusedActionId) {
+		if (focusedAction) {
 			const index = Array.from({ length: this.actionBar.length() }, (_, index) => index)
-				.find(index => this.actionBar.getAction(index)?.id === focusedActionId);
+				.find(index => this.actionBar.getAction(index) === focusedAction);
 			const overflowIndex = Array.from({ length: this.actionBar.length() }, (_, index) => index)
 				.find(index => this.actionBar.getAction(index) === this.toggleMenuAction);
 			this.actionBar.focus(index ?? overflowIndex);
+			if (index !== undefined && DOM.isHTMLElement(focusedElement) && DOM.isAncestor(focusedElement, this.getItemElement(index) ?? null) && DOM.getActiveElement() !== focusedElement) {
+				// Keep compound controls on their previously focused child.
+				const viewItem = this.getItemViewItem(index);
+				if (viewItem instanceof BaseActionViewItem) {
+					viewItem.setFocusable(false);
+				}
+				focusedElement.tabIndex = 0;
+				focusedElement.focus({ preventScroll: true });
+			}
 		} else {
 			this.actionBar.setFocusable(true);
 		}
