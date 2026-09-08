@@ -8,7 +8,7 @@ import { IContextMenuProvider } from '../../../../browser/contextmenu.js';
 import { ActionBar } from '../../../../browser/ui/actionbar/actionbar.js';
 import { BaseActionViewItem } from '../../../../browser/ui/actionbar/actionViewItems.js';
 import { ToggleMenuAction, ToolBar } from '../../../../browser/ui/toolbar/toolbar.js';
-import { Action, IAction } from '../../../../common/actions.js';
+import { Action, IAction, Separator } from '../../../../common/actions.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../common/utils.js';
 
 class FixedWidthActionViewItem extends BaseActionViewItem {
@@ -592,4 +592,156 @@ suite('ToolBar', () => {
 			usesOverflowButton: true,
 		});
 	});
+
+	test('keeps the trailing separator after overflow while resizing', () => {
+		const baseline = store.add(new ToolBar(container, contextMenuProvider, { trailingSeparator: true }));
+		baseline.setActions([store.add(new Action('baseline', 'Baseline'))]);
+		const separatorWidth = baseline.getItemWidth(1);
+		let availableWidth = 300;
+		const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+			trailingSeparator: true,
+			responsiveBehavior: {
+				enabled: true,
+				kind: 'all',
+				minItems: 0,
+				getAvailableWidth: () => availableWidth,
+			},
+		}));
+		toolbar.setActions([
+			store.add(new Action('new', 'New Chat')),
+			store.add(new Action('settings', 'Open Customizations')),
+		], [store.add(new Action('history', 'History'))]);
+
+		const states = [];
+		for (const width of [24, 300, 24]) {
+			availableWidth = width;
+			toolbar.relayout();
+			const overflow = Array.from({ length: toolbar.getItemsLength() }, (_, index) => toolbar.getItemAction(index)).find(action => action instanceof ToggleMenuAction);
+			states.push({
+				items: Array.from({ length: toolbar.getItemsLength() }, (_, index) => toolbar.getItemAction(index)?.id),
+				overflow: overflow?.menuActions.map(action => action.id),
+				separatorWidth: toolbar.getItemWidth(toolbar.getItemsLength() - 1),
+			});
+		}
+		assert.deepStrictEqual(states, [
+			{ items: [ToggleMenuAction.ID, Separator.ID], overflow: ['new', 'settings', Separator.ID, 'history'], separatorWidth },
+			{ items: ['new', 'settings', ToggleMenuAction.ID, Separator.ID], overflow: ['history'], separatorWidth },
+			{ items: [ToggleMenuAction.ID, Separator.ID], overflow: ['new', 'settings', Separator.ID, 'history'], separatorWidth },
+		]);
+	});
+
+	test('keeps overflow keyboard reachable when every primary action moves into it', () => {
+		let availableWidth = 300;
+		const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+			responsiveBehavior: {
+				enabled: true,
+				kind: 'all',
+				minItems: 0,
+				getAvailableWidth: () => availableWidth,
+			},
+		}));
+		toolbar.setActions([store.add(new Action('new', 'New Chat'))], [store.add(new Action('history', 'History'))]);
+		availableWidth = 24;
+		toolbar.relayout();
+		assert.strictEqual(toolbar.getElement().querySelector<HTMLElement>('[aria-haspopup="true"]')?.tabIndex, 0);
+	});
+
+	test('moves focus to overflow when the focused primary action no longer fits', () => {
+		let availableWidth = 300;
+		const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+			responsiveBehavior: {
+				enabled: true,
+				kind: 'all',
+				minItems: 0,
+				overflowFrom: 'start',
+				getAvailableWidth: () => availableWidth,
+			},
+		}));
+		toolbar.setActions([store.add(new Action('new', 'New Chat')), store.add(new Action('settings', 'Settings'))], [store.add(new Action('history', 'History'))]);
+		toolbar.focus();
+		availableWidth = 24;
+		toolbar.relayout();
+		assert.strictEqual(document.activeElement, toolbar.getElement().querySelector('[aria-haspopup="true"]'));
+		availableWidth = 300;
+		toolbar.relayout();
+		assert.deepStrictEqual({
+			focusOnOverflow: document.activeElement === toolbar.getElement().querySelector('[aria-haspopup="true"]'),
+			tabStops: toolbar.getElement().querySelectorAll('[tabindex="0"]').length,
+		}, {
+			focusOnOverflow: true,
+			tabStops: 1,
+		});
+	});
+
+	test('reserves minimum items at the retained end when overflowing from the start', () => {
+		const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+			responsiveBehavior: {
+				enabled: true,
+				kind: 'all',
+				overflowFrom: 'start',
+				minItems: 1,
+				getActionMinWidth: action => action.id === 'new' ? 36 : 10,
+				getAvailableWidth: () => 1,
+			},
+		}));
+		toolbar.setActions([store.add(new Action('new', 'New Chat')), store.add(new Action('settings', 'Settings'))]);
+		assert.deepStrictEqual({
+			items: Array.from({ length: toolbar.getItemsLength() }, (_, index) => toolbar.getItemAction(index)?.id),
+			minWidth: toolbar.getElement().style.minWidth,
+		}, {
+			items: ['settings', ToggleMenuAction.ID],
+			minWidth: '38px',
+		});
+	});
+
+	for (const secondary of [false, true]) {
+		for (const trailingSeparator of [false, true]) {
+			test(`progressively overflows from the start and restores in reverse order (secondary: ${secondary}, divider: ${trailingSeparator})`, () => {
+				let availableWidth = 300;
+				const toolbar = store.add(new ToolBar(container, contextMenuProvider, {
+					trailingSeparator,
+					responsiveBehavior: {
+						enabled: true,
+						kind: 'all',
+						minItems: 0,
+						overflowFrom: 'start',
+						getActionMinWidth: action => action.id === 'new' ? 36 : 22,
+						getAvailableWidth: () => availableWidth,
+					},
+				}));
+				const actions = ['new', 'settings', 'extra'].map(id => store.add(new Action(id, id)));
+				const secondaryActions = secondary ? [store.add(new Action('history', 'History'))] : [];
+				toolbar.setActions(actions, secondaryActions);
+				const snapshot = () => {
+					const items = Array.from({ length: toolbar.getItemsLength() }, (_, index) => toolbar.getItemAction(index));
+					const overflow = items.find(action => action instanceof ToggleMenuAction);
+					return {
+						items: items.map(action => action?.id),
+						overflow: overflow?.menuActions.map(action => action.id) ?? [],
+						tabStops: toolbar.getElement().querySelectorAll('[tabindex="0"]').length,
+					};
+				};
+				const states = [];
+				for (const width of [90, 24, 70, 90, 300, 24, 300]) {
+					availableWidth = width;
+					toolbar.relayout();
+					states.push(snapshot());
+				}
+				availableWidth = 24;
+				toolbar.setActions(actions.slice(0, 2), secondaryActions);
+				states.push(snapshot());
+				const divider = trailingSeparator ? [Separator.ID] : [];
+				const overflowTail = secondary ? [Separator.ID, 'history'] : [];
+				const collapsed = { items: [ToggleMenuAction.ID, ...divider], overflow: ['new', 'settings', 'extra', ...overflowTail], tabStops: 1 };
+				const partial = { items: ['settings', 'extra', ToggleMenuAction.ID, ...divider], overflow: ['new', ...overflowTail], tabStops: 1 };
+				const expanded = { items: ['new', 'settings', 'extra', ...(secondary ? [ToggleMenuAction.ID] : []), ...divider], overflow: secondary ? ['history'] : [], tabStops: 1 };
+				assert.deepStrictEqual(states, [
+					partial, collapsed,
+					{ items: ['extra', ToggleMenuAction.ID, ...divider], overflow: ['new', 'settings', ...overflowTail], tabStops: 1 },
+					partial, expanded, collapsed, expanded,
+					{ items: [ToggleMenuAction.ID, ...divider], overflow: ['new', 'settings', ...overflowTail], tabStops: 1 },
+				]);
+			});
+		}
+	}
 });
