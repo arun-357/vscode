@@ -724,14 +724,27 @@ suite('ToolBar', () => {
 					const items = Array.from({ length: toolbar.getItemsLength() }, (_, index) => toolbar.getItemAction(index)!);
 					const overflow = items.find(action => action instanceof ToggleMenuAction);
 					states.push({
-						commands: [...items, ...overflow?.menuActions ?? []]
-							.filter(action => action.id === 'a' || action.id === 'b').map(action => action.id).sort(),
-						expandedItems: width === 300 ? items.map(action => action === separator ? 'group separator' : action.id) : undefined,
+						items: items.map(action => action.id),
+						overflow: overflow?.menuActions.map(action => action.id) ?? [],
 					});
 				}
-				const expanded = { commands: ['a', 'b'], expandedItems: ['a', 'group separator', 'b', ...(secondary ? [ToggleMenuAction.ID] : []), Separator.ID] };
-				const collapsed = { commands: ['a', 'b'], expandedItems: undefined };
-				assert.deepStrictEqual(states, [expanded, collapsed, collapsed, collapsed, expanded, collapsed, expanded]);
+				const divider = [Separator.ID];
+				const overflowTail = secondary ? [Separator.ID, 'history'] : [];
+				const visibleAction = overflowFrom === 'start' ? 'b' : 'a';
+				const hiddenAction = overflowFrom === 'start' ? 'a' : 'b';
+				const expanded = {
+					items: ['a', Separator.ID, 'b', ...(secondary ? [ToggleMenuAction.ID] : []), ...divider],
+					overflow: secondary ? ['history'] : [],
+				};
+				const partial = {
+					items: [visibleAction, ToggleMenuAction.ID, ...divider],
+					overflow: [hiddenAction, ...overflowTail],
+				};
+				const collapsed = {
+					items: [ToggleMenuAction.ID, ...divider],
+					overflow: ['a', Separator.ID, 'b', ...overflowTail],
+				};
+				assert.deepStrictEqual(states, [expanded, collapsed, partial, partial, expanded, collapsed, expanded]);
 			});
 		}
 	}

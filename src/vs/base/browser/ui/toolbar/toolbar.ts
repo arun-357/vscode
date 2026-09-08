@@ -459,6 +459,56 @@ export class ToolBar extends Disposable {
 			}
 			return indexes;
 		};
+		const getVisiblePrimaryActionCount = () => getVisiblePrimaryActionIndexes()
+			.reduce((count, index) => count + (this.actionBar.getAction(index) instanceof Separator ? 0 : 1), 0);
+		const getActionsToHide = (): IAction[] => {
+			const indexes = getVisiblePrimaryActionIndexes();
+			const actionIndex = (this.overflowFromStart ? indexes : indexes.slice().reverse())
+				.find(index => !(this.actionBar.getAction(index) instanceof Separator));
+			if (actionIndex === undefined) {
+				return [];
+			}
+
+			let startIndex = actionIndex;
+			let endIndex = actionIndex;
+			const step = this.overflowFromStart ? 1 : -1;
+			for (let index = actionIndex + step; index >= 0 && index < this.actionBar.length(); index += step) {
+				const action = this.actionBar.getAction(index);
+				if (!(action instanceof Separator) || !this.originalPrimaryActions.includes(action) || !isActionItemVisible(index)) {
+					break;
+				}
+				startIndex = Math.min(startIndex, index);
+				endIndex = Math.max(endIndex, index);
+			}
+
+			const actions: IAction[] = [];
+			for (let index = startIndex; index <= endIndex; index++) {
+				const action = this.actionBar.getAction(index);
+				if (action) {
+					actions.push(action);
+				}
+			}
+			return actions;
+		};
+		const getActionsToRestore = (): IAction[] => {
+			if (this.hiddenActions.length === 0) {
+				return [];
+			}
+
+			if (this.overflowFromStart) {
+				let startIndex = this.hiddenActions.length - 1;
+				while (startIndex > 0 && this.hiddenActions[startIndex] instanceof Separator) {
+					startIndex--;
+				}
+				return this.hiddenActions.slice(startIndex);
+			}
+
+			let endIndex = 0;
+			while (endIndex < this.hiddenActions.length - 1 && this.hiddenActions[endIndex] instanceof Separator) {
+				endIndex++;
+			}
+			return this.hiddenActions.slice(0, endIndex + 1);
+		};
 		const actionBarMinimumWidth = () => {
 			if (this.options.responsiveBehavior?.kind === 'last') {
 				const hasToggleMenuAction = this.actionBar.hasAction(this.toggleMenuAction);
@@ -489,8 +539,8 @@ export class ToolBar extends Disposable {
 			}
 		};
 
-		const projectedActionBarMinimumWidth = (actionToAdd: IAction, keepToggleMenuAction: boolean) => {
-			let itemsWidth = this.getActionMinWidth(actionToAdd);
+		const projectedActionBarMinimumWidth = (actionsToAdd: readonly IAction[], keepToggleMenuAction: boolean) => {
+			let itemsWidth = actionsToAdd.reduce((width, action) => width + this.getActionMinWidth(action), 0);
 			if (this.options.responsiveBehavior?.kind === 'last') {
 				const primaryActionIndexes = getVisiblePrimaryActionIndexes();
 				for (const [position, index] of primaryActionIndexes.entries()) {
@@ -532,7 +582,7 @@ export class ToolBar extends Disposable {
 
 			// Check for max items limit
 			if (this.options.responsiveBehavior?.minItems !== undefined) {
-				const primaryActionsCount = getVisiblePrimaryActionIndexes().length;
+				const primaryActionsCount = getVisiblePrimaryActionCount();
 
 				if (primaryActionsCount <= this.options.responsiveBehavior.minItems) {
 					return;
@@ -543,29 +593,28 @@ export class ToolBar extends Disposable {
 			while (minimumWidth > containerWidth && this.actionBar.length() > 0) {
 				if (
 					this.options.responsiveBehavior?.minItems !== undefined
-					&& getVisiblePrimaryActionIndexes().length <= this.options.responsiveBehavior.minItems
+					&& getVisiblePrimaryActionCount() <= this.options.responsiveBehavior.minItems
 				) {
 					break;
 				}
 
-				const index = getVisiblePrimaryActionIndexes().at(this.overflowFromStart ? 0 : -1);
-				if (index === undefined) {
+				const actionsToHide = getActionsToHide();
+				if (actionsToHide.length === 0) {
 					break;
 				}
-				const action = this.actionBar.getAction(index);
-				if (!action) {
-					break;
+				for (const action of actionsToHide) {
+					this.hiddenActions.push(action);
+					const index = this.actionBar.viewItems.findIndex(item => item.action === action);
+					if (index !== -1) {
+						this.actionBar.pull(index);
+					}
 				}
-				this.hiddenActions.push(action);
 				this.hiddenActions.sort((a, b) => this.originalPrimaryActions.indexOf(a) - this.originalPrimaryActions.indexOf(b));
-
-				// Remove the action
-				this.actionBar.pull(index);
 
 				// There are no secondary actions, but we have actions that we need to hide so we
 				// create the overflow menu. This will ensure that another primary action will be
 				// removed making space for the overflow menu.
-				if (this.originalSecondaryActions.length === 0 && this.hiddenActions.length === 1) {
+				if (this.originalSecondaryActions.length === 0 && !this.actionBar.hasAction(this.toggleMenuAction)) {
 					this.actionBar.push(this.toggleMenuAction, {
 						icon: this.options.icon ?? true,
 						label: this.options.label ?? false,
@@ -581,26 +630,25 @@ export class ToolBar extends Disposable {
 		} else {
 			// Restore actions in reverse overflow order.
 			while (this.hiddenActions.length > 0) {
-				const hiddenIndex = this.overflowFromStart ? this.hiddenActions.length - 1 : 0;
-				const action = this.hiddenActions[hiddenIndex];
-				const keepToggleMenuAction = this.originalSecondaryActions.length > 0 || this.hiddenActions.length > 1;
-				if (projectedActionBarMinimumWidth(action, keepToggleMenuAction) > containerWidth) {
+				const actionsToRestore = getActionsToRestore();
+				const keepToggleMenuAction = this.originalSecondaryActions.length > 0 || this.hiddenActions.length > actionsToRestore.length;
+				if (projectedActionBarMinimumWidth(actionsToRestore, keepToggleMenuAction) > containerWidth) {
 					// Not enough space to show the action
 					break;
 				}
 
-				this.hiddenActions.splice(hiddenIndex, 1);
-
-				// Add the action
-				const visibleActions = new Set(this.actionBar.viewItems.map(item => item.action));
-				this.actionBar.push(action, {
-					icon: this.options.icon ?? true,
-					label: this.options.label ?? false,
-					keybinding: this.getKeybindingLabel(action),
-					index: this.originalPrimaryActions
-						.slice(0, this.originalPrimaryActions.indexOf(action))
-						.reduce((index, precedingAction) => index + (visibleActions.has(precedingAction) ? 1 : 0), 0)
-				});
+				for (const action of actionsToRestore) {
+					this.hiddenActions.splice(this.hiddenActions.indexOf(action), 1);
+					const visibleActions = new Set(this.actionBar.viewItems.map(item => item.action));
+					this.actionBar.push(action, {
+						icon: this.options.icon ?? true,
+						label: this.options.label ?? false,
+						keybinding: this.getKeybindingLabel(action),
+						index: this.originalPrimaryActions
+							.slice(0, this.originalPrimaryActions.indexOf(action))
+							.reduce((index, precedingAction) => index + (visibleActions.has(precedingAction) ? 1 : 0), 0)
+					});
+				}
 
 				// There are no secondary actions, and there is only one hidden item left so we
 				// remove the overflow menu making space for the last hidden action to be shown.
@@ -621,7 +669,7 @@ export class ToolBar extends Disposable {
 		) ?? action);
 		if (this.originalSecondaryActions.length > 0 || hiddenActions.length > 0) {
 			const secondaryActions = this.originalSecondaryActions.slice(0);
-			this.toggleMenuAction.menuActions = Separator.join(hiddenActions, secondaryActions);
+			this.toggleMenuAction.menuActions = Separator.clean(Separator.join(hiddenActions, secondaryActions));
 		}
 
 		this.updateOverflowClassName();
