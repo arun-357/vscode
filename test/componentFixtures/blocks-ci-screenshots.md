@@ -403,7 +403,7 @@
 ![screenshot](https://hediet-screenshots.azurewebsites.net/images/f8767471201b45f1193d7df64a848809e6e7557a4973896a9722f78e17e40610)
 
 #### workbench/activityBarMenu/CompactActivityBarMenu_CompactDensity/DarkHighContrast
-![screenshot](https://hediet-screenshots.azurewebsites.net/images/183813e47904c4e3984a1e2e575b165efe8f5ee0c5e09021a79daaaabaf00d96)
+![screenshot](https://hediet-screenshots.azurewebsites.net/images/50440b966cd7c6cf462f584c7048f5a669b292463ae8914657281b048c1a6806)
 
 #### workbench/activityBarMenu/CompactActivityBarMenu_CompactDensity/Light
 ![screenshot](https://hediet-screenshots.azurewebsites.net/images/1378229a45238eac02e9b4d12d2a37da63d58e9e81612a7a0c09da7bc5a11242)
@@ -412,7 +412,7 @@
 ![screenshot](https://hediet-screenshots.azurewebsites.net/images/c3cc700411e3faa1c62693702347277e25f5ce218bcaff3c8382978e4ebed96c)
 
 #### workbench/activityBarMenu/CompactActivityBarMenu_DefaultDensity/DarkHighContrast
-![screenshot](https://hediet-screenshots.azurewebsites.net/images/a16b6e925972048b64cdcfebe94bc2cd72ee8729c59f1b3ff3fd92d3ad34d9d0)
+![screenshot](https://hediet-screenshots.azurewebsites.net/images/d17288e25fd966b8dc7fe9300c1adcfe5c77b5b700ff6ffb4eea37e6d1a773ae)
 
 #### workbench/activityBarMenu/CompactActivityBarMenu_DefaultDensity/Light
 ![screenshot](https://hediet-screenshots.azurewebsites.net/images/2786fba1b7f0b41a26e238ea678ef381bd004d977f16abcb600239e142d1488e)
